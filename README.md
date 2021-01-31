@@ -39,3 +39,34 @@ Example usage:
   # Reenter it
   cd $current_dir
 ```
+
+## Instalation
+
+### Oh my Zsh
+
+Git clone this repository to the Oh my Zsh custom plugins folder.
+
+Add plugin to plugins directive in `~/.zshrc`
+```zsh
+plugins=(
+  # put local oh-my-zsh plugins here
+  viper-env
+)
+
+source $HOME/.oh-my-zsh/oh-my-zsh.sh
+``` 
+
+### Antigen
+It is recommended to use a `.antigenrc` file. Then add the following to it:
+
+```zsh
+antigen bundle DanielAtKrypton/viper-env
+
+# Apply changes
+antigen apply
+```
+
+Make sure in your `.zshrc` Antigen is loading the `.antigenrc` file as follows:
+```zsh
+antigen init ~/.antigenrc
+```
