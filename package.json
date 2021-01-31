@@ -7,7 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "phase_one": "svg-term --cast=4iMwcKfBS1dc1EgI1FihrDVxT --out assets/usage.svg --profile DanielAtKrypton --window --term konsole",
     "phase_two": "svgembed -i assets/usage.svg -o assets/final.svg -f assets/FiraCodeRetinaNF.ttf -t \"viper-env is cool\" --hover",
-    "all_phases": "yarn phase_one && yarn phase_two && rm assets/usage.svg"
+    "all_phases": "yarn phase_one && yarn phase_two && rm assets/usage.svg",
+    "postinstall": "yarn all_phases"
   },
   "repository": {
     "type": "git",
