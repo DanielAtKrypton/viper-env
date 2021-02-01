@@ -17,28 +17,40 @@ export COLOR_BRIGHT_CYAN='\u001b[36;1m'
 export COLOR_WHITE='\033[0;37m'
 export COLOR_NC='\033[0m' # No Color
 
-function cd() {
-  builtin cd "$@"
-  virtualenv_directory=.venv
-  direnv_file=.envrc
+function activate_venv() {  
+  local d n
+  d=$PWD
+  local virtualenv_directory=$1
+  local full_virtualenv_directory=$d/$virtualenv_directory
+  until false 
+  do 
+  if [[ -f $full_virtualenv_directory/bin/activate ]] ; then 
+    echo Activating virtual environment ${COLOR_BRIGHT_VIOLET}$full_virtualenv_directory${COLOR_NC}
+    source $full_virtualenv_directory/bin/activate
+    break
+  fi
+    d=${d%/*}
+    # d="$(dirname "$d")"
+    [[ $d = *\/* ]] || break
+  done
+}
 
-  if [[ -z "$VIRTUAL_ENV" ]] ; then
-    ## If env folder is found then activate the vitualenv
-      if [[ -d ./$virtualenv_directory ]] ; then
-        echo Activating virtual environment ${COLOR_BRIGHT_VIOLET}$virtualenv_directory${COLOR_NC}
-        source ./$virtualenv_directory/bin/activate
-      fi
+function automatically_activate_python_env() {
+  local virtualenv_directory=.venv
+  if [[ -z $VIRTUAL_ENV ]] ; then
+    activate_venv $virtualenv_directory
   else
-    ## check the current folder belong to earlier VIRTUAL_ENV folder
-    # if yes then do nothing
-    # else deactivate
-      parentdir="$(dirname "$VIRTUAL_ENV")"
-      if [[ "$PWD"/ != "$parentdir"/* ]] ; then
-        echo Deactivating virtual environment ${COLOR_BRIGHT_VIOLET}$virtualenv_directory${COLOR_NC}
-        deactivate
-      fi
+    parentdir="$(dirname ${VIRTUAL_ENV})"
+    if [[ "$PWD"/ != "$parentdir"/* ]] ; then
+      echo Deactivating virtual environment ${COLOR_BRIGHT_VIOLET}${VIRTUAL_ENV}${COLOR_NC}
+      deactivate
+      activate_venv $virtualenv_directory
+    fi
   fi
 }
+autoload -Uz add-zsh-hook
+add-zsh-hook precmd automatically_activate_python_env
+
 eval "$(direnv hook zsh)"
 
 __viper-env_help () {

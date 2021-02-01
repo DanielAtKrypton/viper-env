@@ -4,7 +4,7 @@ Automatically activates and deactivates python virtualenv upon cd in and out.
 
 ## Inspiration
 
-Based on [_MS](https://stackoverflow.com/users/8694152/ms) [answer](https://stackoverflow.com/a/50830617/11685534), I decided to go one step further and implement it as a Z-Shell plugin.
+Based on [blueray](https://stackoverflow.com/users/1772898/blueray)'s [answer](https://stackoverflow.com/a/63955939/11685534), I decided to go one step further and implement it as a Z-Shell plugin.
 
 ## Usage
 <!-- [![asciicast](https://asciinema.org/a/4iMwcKfBS1dc1EgI1FihrDVxT.svg)](https://asciinema.org/a/4iMwcKfBS1dc1EgI1FihrDVxT) -->
