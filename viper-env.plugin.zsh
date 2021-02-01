@@ -22,10 +22,11 @@ function activate_venv() {
   d=$PWD
   local virtualenv_directory=$1
   local full_virtualenv_directory=$d/$virtualenv_directory
+  local relative_venv_path=$(realpath --relative-to=$(dirname $PWD) $full_virtualenv_directory)
   until false 
   do 
   if [[ -f $full_virtualenv_directory/bin/activate ]] ; then 
-    echo Activating virtual environment ${COLOR_BRIGHT_VIOLET}$full_virtualenv_directory${COLOR_NC}
+    echo Activating virtual environment ${COLOR_BRIGHT_VIOLET}$relative_venv_path${COLOR_NC}
     source $full_virtualenv_directory/bin/activate
     break
   fi
@@ -40,9 +41,10 @@ function automatically_activate_python_env() {
   if [[ -z $VIRTUAL_ENV ]] ; then
     activate_venv $virtualenv_directory
   else
+    local relative_venv_path=$(realpath --relative-to=$PWD ${VIRTUAL_ENV})
     parentdir="$(dirname ${VIRTUAL_ENV})"
     if [[ "$PWD"/ != "$parentdir"/* ]] ; then
-      echo Deactivating virtual environment ${COLOR_BRIGHT_VIOLET}${VIRTUAL_ENV}${COLOR_NC}
+      echo Deactivating virtual environment ${COLOR_BRIGHT_VIOLET}$relative_venv_path${COLOR_NC}
       deactivate
       activate_venv $virtualenv_directory
     fi
@@ -51,8 +53,6 @@ function automatically_activate_python_env() {
 autoload -Uz add-zsh-hook
 add-zsh-hook precmd automatically_activate_python_env
 
-eval "$(direnv hook zsh)"
-
 __viper-env_help () {
   printf "Description:
   ${COLOR_BRIGHT_BLACK}Automatically activates and deactivates python virtualenv upon cd in and out.${COLOR_NC}
@@ -60,19 +60,12 @@ __viper-env_help () {
 "
   printf "Dependencies:
   ${COLOR_BRIGHT_BLACK}- zsh
-  - direnv
   - python${COLOR_NC}
 
 "
   printf "Example usage:
   ${COLOR_BRIGHT_BLACK}# Create virtual environment${COLOR_NC}
   ${COLOR_GREEN}python${COLOR_NC} -m venv .venv
-  ${COLOR_BRIGHT_BLACK}# Activate it${COLOR_NC}
-  ${COLOR_GREEN}.${COLOR_NC} .venv/bin/activate
-  ${COLOR_BRIGHT_BLACK}# Create direnv file${COLOR_NC}
-  ${COLOR_YELLOW}export${COLOR_NC} VIRTUAL_ENV=venv ${COLOR_YELLOW}>${COLOR_NC} .envrc
-  ${COLOR_BRIGHT_BLACK}# Allow it${COLOR_NC}
-  ${COLOR_GREEN}direnv${COLOR_NC} allow .
   ${COLOR_BRIGHT_BLACK}# Save current dir${COLOR_NC}
   current_dir=${COLOR_VIOLET}\$(${COLOR_GREEN}basename ${COLOR_YELLOW}"${COLOR_NC}\$PWD${COLOR_YELLOW}"${COLOR_VIOLET})${COLOR_NC}
   ${COLOR_BRIGHT_BLACK}# Exit current directory${COLOR_NC}

@@ -20,18 +20,11 @@ Description:
 
 Dependencies:
   - zsh
-  - direnv
   - python
 
 Example usage:
   # Create virtual environment
   python -m venv .venv
-  # Activate it
-  . .venv/bin/activate
-  # Create direnv file
-  export VIRTUAL_ENV=venv > .envrc
-  # Allow it
-  direnv allow .
   # Save current dir
   current_dir=$(basename $PWD)
   # Exit current directory
