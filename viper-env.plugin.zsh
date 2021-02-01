@@ -18,35 +18,44 @@ export COLOR_WHITE='\033[0;37m'
 export COLOR_NC='\033[0m' # No Color
 
 function activate_venv() {  
-  local d n
-  d=$PWD
   local virtualenv_directory=$1
-  local full_virtualenv_directory=$d/$virtualenv_directory
-  local relative_venv_path=$(realpath --relative-to=$(dirname $PWD) $full_virtualenv_directory)
+  local d=$2
+  local relative_venv_path=$3
   until false 
   do 
-  if [[ -f $full_virtualenv_directory/bin/activate ]] ; then 
-    echo Activating virtual environment ${COLOR_BRIGHT_VIOLET}$relative_venv_path${COLOR_NC}
-    source $full_virtualenv_directory/bin/activate
-    break
-  fi
+    local full_virtualenv_directory=$d/$virtualenv_directory
+    if [[ -f $full_virtualenv_directory/bin/activate ]] ; then
+      if [[ -f $full_virtualenv_directory/bin/python ]] ; then
+        echo Activating virtual environment ${COLOR_BRIGHT_VIOLET}$relative_venv_path${COLOR_NC}
+        source $full_virtualenv_directory/bin/activate
+        break
+      fi
+    fi
     d=${d%/*}
     # d="$(dirname "$d")"
     [[ $d = *\/* ]] || break
   done
 }
 
+function get_venv_path(){
+  echo "$(basename "$1")/$2"
+}
+
 function automatically_activate_python_env() {
+  local current_dir="$PWD" 
   local virtualenv_directory=.venv
-  if [[ -z $VIRTUAL_ENV ]] ; then
-    activate_venv $virtualenv_directory
+  local venv_var="$VIRTUAL_ENV"
+  if [[ -z $venv_var ]] ; then
+    local relative_activating_venv_path="$(get_venv_path $current_dir $virtualenv_directory)"
+    activate_venv $virtualenv_directory $current_dir $relative_activating_venv_path
   else
-    local relative_venv_path=$(realpath --relative-to=$PWD ${VIRTUAL_ENV})
-    parentdir="$(dirname ${VIRTUAL_ENV})"
-    if [[ "$PWD"/ != "$parentdir"/* ]] ; then
-      echo Deactivating virtual environment ${COLOR_BRIGHT_VIOLET}$relative_venv_path${COLOR_NC}
+    parentdir="$(dirname $venv_var)"
+    if [[ $current_dir/ != $parentdir/* ]] ; then
+      local deactivating_relative_venv_path="$(realpath --relative-to=$current_dir $venv_var)"
+      echo Deactivating virtual environment ${COLOR_BRIGHT_VIOLET}$deactivating_relative_venv_path${COLOR_NC}
       deactivate
-      activate_venv $virtualenv_directory
+      local relative_activating_venv_path="$(get_venv_path $current_dir $virtualenv_directory)"
+      activate_venv $virtualenv_directory $current_dir $relative_activating_venv_path
     fi
   fi
 }
