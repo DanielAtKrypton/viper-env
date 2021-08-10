@@ -21,6 +21,7 @@ Description:
 Dependencies:
   - zsh
   - python
+  - `brew install coreutils` (macOS only)
 
 Example usage:
   # Create virtual environment
