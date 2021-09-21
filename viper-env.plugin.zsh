@@ -79,7 +79,8 @@ function automatically_activate_python_env() {
   fi
 }
 autoload -Uz add-zsh-hook
-add-zsh-hook chpwd automatically_activate_python_env
+# for MacOS insted of precmd chpwd might work more appropriately.
+add-zsh-hook precmd automatically_activate_python_env
 
 __viper-env_help () {
   printf "Description:
@@ -92,14 +93,14 @@ __viper-env_help () {
 
 "
   printf "Example usage:
+  ${COLOR_BRIGHT_BLACK}# Create new project folder${COLOR_NC}
+  ${COLOR_GREEN}mkdir${COLOR_NC} new_project
   ${COLOR_BRIGHT_BLACK}# Create virtual environment${COLOR_NC}
-  ${COLOR_GREEN}python${COLOR_NC} -m env .env
-  ${COLOR_BRIGHT_BLACK}# Save current dir${COLOR_NC}
-  current_dir=${COLOR_VIOLET}\$(${COLOR_GREEN}basename ${COLOR_YELLOW}"${COLOR_NC}\$PWD${COLOR_YELLOW}"${COLOR_VIOLET})${COLOR_NC}
+  ${COLOR_GREEN}python${COLOR_NC} -m venv .venv
   ${COLOR_BRIGHT_BLACK}# Exit current directory${COLOR_NC}
   ${COLOR_GREEN}cd${COLOR_NC} ..
   ${COLOR_BRIGHT_BLACK}# Reenter it${COLOR_NC}
-  ${COLOR_GREEN}cd${COLOR_NC} \$current_dir
+  ${COLOR_GREEN}cd${COLOR_NC} new_project
 "
 }
 
