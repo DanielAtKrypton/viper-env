@@ -79,8 +79,7 @@ function automatically_activate_python_env() {
   fi
 }
 autoload -Uz add-zsh-hook
-# for MacOS insted of precmd chpwd might work more appropriately.
-add-zsh-hook precmd automatically_activate_python_env
+add-zsh-hook chpwd automatically_activate_python_env
 
 __viper-env_help () {
   printf "Description:
