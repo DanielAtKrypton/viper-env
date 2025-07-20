@@ -2,6 +2,14 @@
 
 Automatically activates and deactivates python virtualenv upon cd in and out.
 
+## Features
+
+- **Automatic Activation/Deactivation:** Finds and manages virtualenvs in your project directories as you `cd`.
+- **Upward Search:** Works even if you are in a subdirectory of your project.
+- **Plays Well With Others:** If you `cd` into a project with a local venv while another venv (e.g., from Poetry, Conda, or manual activation) is active, viper-env will deactivate the old one before activating the new one.
+- **State-Aware:** Only deactivates environments that it has activated, so it won't interfere when you leave a project that uses another tool.
+- **Configurable:** Supports a quiet mode and provides `list` and `status` commands for diagnostics.
+
 ## Inspiration
 
 Based on [blueray](https://stackoverflow.com/users/1772898/blueray)'s [answer](https://stackoverflow.com/a/63955939/11685534), I decided to go one step further and implement it as a Z-Shell plugin.
@@ -13,25 +21,20 @@ Based on [blueray](https://stackoverflow.com/users/1772898/blueray)'s [answer](h
 
 ## Example
 ```zsh
-> viper-env help
+# Create a new project and cd into it
+mkdir my-project && cd my-project
 
-Description:
-  Automatically activates and deactivates python virtualenv upon cd in and out.
+# Create a virtual environment
+python -m venv .venv
+# -> viper-env automatically activates ".venv"
 
-Dependencies:
-  - zsh
-  - python
-  - `brew install coreutils` (macOS only)
+# Go to a subdirectory
+mkdir src && cd src
+# -> ".venv" stays active
 
-Example usage:
-  # Create virtual environment
-  python -m venv .venv
-  # Save current dir
-  current_dir=$(basename $PWD)
-  # Exit current directory
-  cd ..
-  # Reenter it
-  cd $current_dir
+# Leave the project directory
+cd ../..
+# -> viper-env automatically deactivates ".venv"
 ```
 
 ## Instalation
@@ -48,7 +51,7 @@ plugins=(
 )
 
 source $HOME/.oh-my-zsh/oh-my-zsh.sh
-``` 
+```
 
 ### Antigen
 It is recommended to use a `.antigenrc` file. Then add the following to it:
