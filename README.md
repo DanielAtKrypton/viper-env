@@ -8,7 +8,8 @@ Automatically activates and deactivates python virtualenv upon cd in and out.
 - **Upward Search:** Works even if you are in a subdirectory of your project.
 - **Plays Well With Others:** If you `cd` into a project with a local venv while another venv (e.g., from Poetry, Conda, or manual activation) is active, viper-env will deactivate the old one before activating the new one.
 - **State-Aware:** Only deactivates environments that it has activated, so it won't interfere when you leave a project that uses another tool.
-- **Configurable:** Supports a quiet mode and provides `list` and `status` commands for diagnostics.
+- **Configurable Activation:** Choose between immediate activation on venv creation or more efficient activation only on directory changes.
+- **Diagnostic Commands:** Supports a quiet mode and provides `list`, `status`, and `version` commands for diagnostics.
 
 ## Inspiration
 
@@ -19,14 +20,17 @@ Based on [blueray](https://stackoverflow.com/users/1772898/blueray)'s [answer](h
 
 ![Alt text](./make_animation/assets/final.svg)
 
-## Example
+## Default Usage (Immediate Activation)
+
+By default, `viper-env` is configured for the most seamless experience. It uses a hook (`precmd`) that runs after every command, allowing it to activate virtual environments immediately upon creation.
+
 ```zsh
 # Create a new project and cd into it
 mkdir my-project && cd my-project
 
 # Create a virtual environment
 python -m venv .venv
-# -> viper-env automatically activates ".venv"
+# -> Activating virtual environment .venv
 
 # Go to a subdirectory
 mkdir src && cd src
@@ -36,6 +40,33 @@ mkdir src && cd src
 cd ../..
 # -> viper-env automatically deactivates ".venv"
 ```
+
+## Configuration
+
+### Using External Virtual Environments (Semi-Automatic Mode)
+
+> [!TIP]
+> For projects where you prefer to keep the virtual environment directory outside of the project folder (e.g., in `~/.virtualenvs/`), you can use the semi-automatic mode.
+>
+> Create a file named `.viper-env` in your project's root directory and place the **absolute path** to your virtual environment in it.
+>
+> ```sh
+> # Example: Tell viper-env to use the 'my-project-venv' environment for this project
+> echo "/home/user/.virtualenvs/my-project-venv" > .viper-env
+> ```
+> `viper-env` will prioritize this file over automatically discovered venvs.
+
+### Efficient Activation (On Directory Change)
+
+If you prefer a more performant mode that only runs when you change directories, you can disable immediate autoloading. This will switch `viper-env` to use the more efficient `chpwd` hook.
+>
+> ```zsh
+> viper-env autoload --disable
+> ```
+> With this setting, you will need to trigger the hook (e.g., by running `cd .`) to activate a newly created environment. You can switch back to the default immediate activation at any time:
+> ```zsh
+> viper-env autoload --enable
+> ```
 
 ## Instalation
 
