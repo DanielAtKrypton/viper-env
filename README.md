@@ -6,9 +6,9 @@ Automatically activates and deactivates python virtualenv upon cd in and out.
 
 - **Automatic Activation/Deactivation:** Finds and manages virtualenvs in your project directories as you `cd`.
 - **Upward Search:** Works even if you are in a subdirectory of your project.
-- **Plays Well With Others:** If you `cd` into a project with a local venv while another venv (e.g., from Poetry, Conda, or manual activation) is active, viper-env will deactivate the old one before activating the new one.
+- **Plays Well With Others:** If a `viper-env` managed environment is active and you `cd` into a new project, it will correctly deactivate the old one before activating the new one.
 - **State-Aware:** Only deactivates environments that it has activated, so it won't interfere when you leave a project that uses another tool.
-- **Configurable Activation:** Choose between immediate activation on venv creation or more efficient activation only on directory changes.
+- **Configurable Autoloading:** Easily enable or disable the automatic activation/deactivation feature.
 - **Diagnostic Commands:** Supports a quiet mode and provides `list`, `status`, and `version` commands for diagnostics.
 
 ## Inspiration
@@ -56,17 +56,19 @@ cd ../..
 > ```
 > `viper-env` will prioritize this file over automatically discovered venvs.
 
-### Efficient Activation (On Directory Change)
+### Disabling and Enabling Autoloading
 
-If you prefer a more performant mode that only runs when you change directories, you can disable immediate autoloading. This will switch `viper-env` to use the more efficient `chpwd` hook.
->
-> ```zsh
-> viper-env autoload --disable
-> ```
-> With this setting, you will need to trigger the hook (e.g., by running `cd .`) to activate a newly created environment. You can switch back to the default immediate activation at any time:
-> ```zsh
-> viper-env autoload --enable
-> ```
+If you wish to temporarily disable the automatic activation and deactivation behavior, you can use the `autoload --disable` command. This acts as a master switch.
+
+```zsh
+viper-env autoload --disable
+```
+
+With autoloading disabled, `viper-env` will not perform any actions as you change directories. You can re-enable the automatic behavior at any time:
+
+```zsh
+viper-env autoload --enable
+```
 
 ## Instalation
 
