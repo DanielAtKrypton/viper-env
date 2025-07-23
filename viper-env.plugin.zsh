@@ -15,6 +15,7 @@ export COLOR_BRIGHT_VIOLET=$'\u001b[35;1m'
 export COLOR_CYAN=$'\033[0;36m'
 export COLOR_BRIGHT_CYAN=$'\u001b[36;1m'
 export COLOR_WHITE=$'\033[0;37m'
+export COLOR_BRIGHT_WHITE=$'\u001b[37;1m'
 export COLOR_NC=$'\033[0m' # No Color
 
 # Configuration file for persistent settings.
@@ -158,11 +159,9 @@ __viper-env_deactivate() {
   deactivating_path=$(realpath --relative-to="$PWD" "$_VIPER_ENV_MANAGED_PATH" 2>/dev/null || basename "$_VIPER_ENV_MANAGED_PATH")
 
   if [[ -z "$VIPER_ENV_QUIET" ]]; then
-    if [[ "$reason" == "defunct" ]]; then
-      echo "Deactivating defunct virtual environment ${COLOR_BRIGHT_VIOLET}$deactivating_path${COLOR_NC}"
-    else
-      echo "Deactivating virtual environment ${COLOR_BRIGHT_VIOLET}$deactivating_path${COLOR_NC}"
-    fi
+    local reason_text=""
+    [[ "$reason" == "defunct" ]] && reason_text="defunct "
+    echo "Deactivating ${reason_text}virtual environment ${COLOR_BRIGHT_VIOLET}$deactivating_path${COLOR_NC}"
   fi
 
   # Manually perform the core actions of a venv's 'deactivate' function.
@@ -268,24 +267,30 @@ autoload -Uz add-zsh-hook
 # Register the appropriate hook based on the user's configuration.
 __viper-env_register_hook
 
+__viper-env_update_config_and_reload() {
+  local message="$1"
+  local config_line="$2"
+  echo -e "$message"
+  echo "$config_line" > "$_VIPER_ENV_CONFIG_FILE"
+  __viper-env_register_hook
+}
+
 __viper-env_handle_autoload() {
   case "$1" in
     --enable)
-      echo "Enabling automatic virtual environment activation."
-      echo '_VIPER_ENV_HOOK_TYPE="precmd"' > "$_VIPER_ENV_CONFIG_FILE"
-      __viper-env_register_hook
+      __viper-env_update_config_and_reload "Enabling automatic virtual environment activation." '_VIPER_ENV_HOOK_TYPE="precmd"'
       ;;
     --disable)
-      echo "Disabling automatic virtual environment activation."
-      echo "Use 'viper-env activate' for manual activation."
-      echo '_VIPER_ENV_HOOK_TYPE="chpwd"' > "$_VIPER_ENV_CONFIG_FILE"
-      __viper-env_register_hook
+      __viper-env_update_config_and_reload "Disabling automatic virtual environment activation.\nUse 'activate' for manual activation." '_VIPER_ENV_HOOK_TYPE="chpwd"'
       ;;
     *)
-      printf "${COLOR_RED}Error: Unknown argument '%s' for autoload command.${COLOR_NC}\n\n" "$1" >&2
-      printf "Usage: viper-env autoload [--enable|--disable]\n"
-      printf "  --enable:  Automatically activate and deactivate virtual environments (default).\n"
-      printf "  --disable: Disables all automatic activation and deactivation. Manual control is required via 'viper-env activate'.\n"
+      cat >&2 <<EOF
+${COLOR_RED}Error: Unknown argument '$1' for autoload command.${COLOR_NC}
+
+Usage: viper-env autoload [--enable|--disable]
+  --enable:  Automatically activate and deactivate virtual environments (default).
+  --disable: Disables all automatic activation and deactivation. Manual control is required via 'activate'.
+EOF
       return 1
       ;;
   esac
@@ -327,6 +332,69 @@ Commands:
 EOF
 }
 
+# Renders a title and key-value pairs as a formatted table.
+# The function dynamically calculates column widths for alignment.
+__viper-env_draw_table() {
+  local title="$1"
+  shift
+  local -a data=("$@")
+  local -a keys values rows
+  local i
+
+  # Separate keys and values from the input array.
+  for (( i=1; i<=${#data[@]}; i+=2 )); do
+    keys+=("${data[i]}")
+    values+=("${data[i+1]}")
+  done
+
+  local max_key_width=0
+  for key in "${keys[@]}"; do
+    [[ ${#key} -gt $max_key_width ]] && max_key_width=${#key}
+  done
+
+  # Build the formatted rows in memory using parameter expansion for efficiency.
+  for (( i=1; i<=${#keys[@]}; i++ )); do
+    rows+=("${(r:max_key_width:: :)keys[i]}: ${values[i]}")
+  done
+
+  # --- Calculate table dimensions ---
+  local max_width=0
+  local clean_row
+  # Enable extended globbing for pattern matching ANSI codes.
+  emulate -L zsh; setopt extended_glob
+  for row in "${rows[@]}"; do
+    clean_row=${row//(#m)$'\e'\[[0-9;]#m/}
+    [[ ${#clean_row} -gt $max_width ]] && max_width=${#clean_row}
+  done
+
+  local clean_title=${title//(#m)$'\e'\[[0-9;]#m/}
+  local title_len=${#clean_title}
+  [[ $max_width -lt $title_len ]] && max_width=$title_len
+
+  # --- Render the table with a single, final I/O call ---
+  local padding=$(( (max_width - title_len) / 2 ))
+  local underline="${(r:$max_width::-:)}"
+
+  # Build the format string and arguments array for a single, robust printf call.
+  local -a fmts args
+
+  # Header
+  fmts+=("%*s%s\n%s\n")
+  args+=($padding "" "$title" "$underline")
+
+  # Body
+  for row in "${rows[@]}"; do
+    fmts+=("%s\n")
+    args+=("$row")
+  done
+
+  # Combine formats into a single string using Zsh's parameter expansion `(j::)` flag.
+  local format_string="${(j::)fmts}"
+
+  # Render the entire table with one I/O call.
+  printf -- "$format_string" "${args[@]}"
+}
+
 # We unalias first to prevent "defining function based on alias" errors
 # if the script is sourced multiple times in the same session.
 unalias viper-env 2>/dev/null
@@ -339,50 +407,85 @@ viper-env() {
       printf "viper-env version %s\n" "$_VIPER_ENV_VERSION"
       ;;
     "list")
+      local list_status
       if [[ -n "$VIRTUAL_ENV" ]]; then
-        printf "Active virtual environment: ${COLOR_BRIGHT_GREEN}%s${COLOR_NC}\n" "$VIRTUAL_ENV"
+        list_status="Active virtual environment: ${COLOR_BRIGHT_GREEN}${VIRTUAL_ENV}${COLOR_NC}"
       else
-        printf "No virtual environment is currently active.\n"
+        list_status="No virtual environment is currently active."
       fi
+      printf "%s\n" "$list_status"
       ;;
     "status")
-      printf "Viper-Env Status:\n"
-      printf -- "-----------------\n"
-      printf "PWD: %s\n" "$PWD"
+      local -a table_data
+
+      # Row 1: PWD
+      table_data+=("PWD" "$PWD")
+
+      # Row 2: Active Venv
+      local venv_value venv_color
       if [[ -n "$VIRTUAL_ENV" ]]; then
-        printf "VIRTUAL_ENV: ${COLOR_BRIGHT_GREEN}%s${COLOR_NC}\n" "$VIRTUAL_ENV"
+        venv_value="$VIRTUAL_ENV"
+        venv_color="$COLOR_BRIGHT_GREEN"
       else
-        printf "VIRTUAL_ENV: ${COLOR_RED}Not set${COLOR_NC}\n"
+        venv_value="Not set"
+        venv_color="$COLOR_RED"
       fi
+      table_data+=("Active Venv" "${venv_color}${venv_value}${COLOR_NC}")
+
+      # Row 3: Managed Path
+      local managed_path_value managed_path_color
       if [[ -n "$_VIPER_ENV_MANAGED_PATH" ]]; then
-        printf "_VIPER_ENV_MANAGED_PATH: ${COLOR_BRIGHT_GREEN}%s${COLOR_NC}\n" "$_VIPER_ENV_MANAGED_PATH"
+        managed_path_value="$_VIPER_ENV_MANAGED_PATH"
+        managed_path_color="$COLOR_BRIGHT_GREEN"
       else
-        printf "_VIPER_ENV_MANAGED_PATH: ${COLOR_RED}Not set${COLOR_NC}\n"
+        managed_path_value="Not set"
+        managed_path_color="$COLOR_RED"
       fi
+      table_data+=("Managed Path" "${managed_path_color}${managed_path_value}${COLOR_NC}")
 
-      printf "Hook type: ${COLOR_BRIGHT_CYAN}%s${COLOR_NC}\n" "$(__viper-env_get_hook_type)"
+      # Row 4: Hook Type
+      table_data+=("Hook Type" "${COLOR_BRIGHT_CYAN}$(__viper-env_get_hook_type)${COLOR_NC}")
 
+      # Row 5: Discovered Venv
       local discovered_path
       discovered_path=$(__viper-env_discover_venv)
-      [[ -n "$discovered_path" ]] && printf "Discovered venv: ${COLOR_BRIGHT_CYAN}%s${COLOR_NC}\n" "$discovered_path" || printf "Discovered venv: None\n"
+      local discovered_value discovered_color
+      if [[ -n "$discovered_path" ]]; then
+        discovered_value="$discovered_path"
+        discovered_color="$COLOR_BRIGHT_CYAN"
+      else
+        discovered_value="None"
+        discovered_color="" # No color
+      fi
+      table_data+=("Discovered Venv" "${discovered_color}${discovered_value}${COLOR_NC}")
 
-      # Check for the activation alias
+      # Row 6: Activation Cmd
+      local activation_value activation_color
       if alias activate >/dev/null 2>&1; then
         if [[ "$(alias activate)" == *__viper-env_manual_activate* ]]; then
-          printf "Activation command: ${COLOR_BRIGHT_GREEN}'activate' alias is set by viper-env${COLOR_NC}\n"
+          activation_value="'activate' alias is set by viper-env"
+          activation_color="$COLOR_BRIGHT_GREEN"
         else
-          printf "Activation command: 'activate' alias is set by another tool\n"
+          activation_value="'activate' alias is set by another tool"
+          activation_color="$COLOR_YELLOW"
         fi
       else
-        printf "Activation command: ${COLOR_RED}'activate' alias is not set${COLOR_NC}\n"
+        activation_value="'activate' alias is not set"
+        activation_color="$COLOR_RED"
       fi
+      table_data+=("Activation Cmd" "${activation_color}${activation_value}${COLOR_NC}")
 
+      local title="${COLOR_BRIGHT_WHITE}Viper-Env Status${COLOR_NC}"
+      __viper-env_draw_table "$title" "${table_data[@]}"
       ;;
     "autoload")
       __viper-env_handle_autoload "$2"
       ;;
     *)
-      printf "${COLOR_RED}Error: Unknown command '%s'${COLOR_NC}\n\n" "$1" >&2
+      cat >&2 <<EOF
+${COLOR_RED}Error: Unknown command '$1'${COLOR_NC}
+
+EOF
       __viper-env_help
       return 1
       ;;
