@@ -7,6 +7,7 @@ Automatically activates and deactivates python virtualenv upon cd in and out.
 - **Automatic Activation/Deactivation:** Finds and manages virtualenvs in your project directories as you `cd`.
 - **Upward Search:** Works even if you are in a subdirectory of your project.
 - **Plays Well With Others:** If a `viper-env` managed environment is active and you `cd` into a new project, it will correctly deactivate the old one before activating the new one.
+- **Convenient Manual Activation:** When autoloading is disabled, an `activate` alias is automatically made available in project directories, giving you explicit control.
 - **State-Aware:** Only deactivates environments that it has activated, so it won't interfere when you leave a project that uses another tool.
 - **Configurable Autoloading:** Easily enable or disable the automatic activation/deactivation feature.
 - **Diagnostic Commands:** Supports a quiet mode and provides `list`, `status`, and `version` commands for diagnostics.
@@ -20,9 +21,11 @@ Based on [blueray](https://stackoverflow.com/users/1772898/blueray)'s [answer](h
 
 ![Alt text](./make_animation/assets/final.svg)
 
-## Default Usage (Immediate Activation)
+## Usage
 
-By default, `viper-env` is configured for the most seamless experience. It uses a hook (`precmd`) that runs after every command, allowing it to activate virtual environments immediately upon creation.
+### Automatic Mode (Default)
+
+By default, `viper-env` is configured for a seamless experience. It uses a `precmd` hook that runs before each prompt, allowing it to activate virtual environments immediately upon creation or when you enter a project directory.
 
 ```zsh
 # Create a new project and cd into it
