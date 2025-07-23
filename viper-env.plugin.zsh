@@ -151,6 +151,10 @@ __viper-env_manual_deactivate() {
   # Call the original 'deactivate' function if it exists.
   # It will handle unsetting VIRTUAL_ENV, restoring PATH, and unsetting itself.
   command -v deactivate >/dev/null 2>&1 && deactivate
+
+  # After deactivation, we must re-evaluate the state to recreate the 'activate' alias if needed.
+  # This is crucial because no other hook will run without a directory change.
+  __viper-env_sync_state
 }
 
 __viper-env_deactivate() {
