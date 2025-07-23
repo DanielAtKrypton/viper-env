@@ -111,6 +111,45 @@ __viper-env_activate() {
   fi
   source "$venv_path/bin/activate"
   _VIPER_ENV_MANAGED_PATH="$VIRTUAL_ENV"
+  # Wrap the 'deactivate' command to keep our state in sync on manual deactivation.
+  alias deactivate='__viper-env_manual_deactivate'
+}
+
+__viper-env_manual_activate() {
+    # This function is called by the 'activate' alias for manual activation.
+    local discovered_path
+    discovered_path=$(__viper-env_discover_venv)
+    if [[ -n "$discovered_path" ]]; then
+        # Call the main activation logic.
+        __viper-env_activate "$discovered_path"
+    else
+        # This case is unlikely if the alias logic is correct, but good for robustness.
+        printf "${COLOR_RED}Error: No virtual environment found to activate.${COLOR_NC}\n" >&2
+        # We should also remove the alias if it somehow exists erroneously.
+        unalias activate 2>/dev/null
+        return 1
+    fi
+}
+
+__viper-env_manage_activate_alias() {
+  local venv_path="$1"
+  # If a venv is discovered AND it's not already the active one, create an alias.
+  # Otherwise, remove it. This keeps the 'activate' command clean and available
+  # only when it's contextually relevant.
+  [[ -n "$venv_path" && "$venv_path" != "$VIRTUAL_ENV" ]] && alias activate='__viper-env_manual_activate' || unalias activate 2>/dev/null
+}
+
+__viper-env_manual_deactivate() {
+  # Unset our internal state *before* calling the original deactivate.
+  # This prevents race conditions with hooks that might run.
+  _VIPER_ENV_MANAGED_PATH=""
+
+  # Remove the alias to prevent loops and restore default behavior.
+  unalias deactivate 2>/dev/null
+
+  # Call the original 'deactivate' function if it exists.
+  # It will handle unsetting VIRTUAL_ENV, restoring PATH, and unsetting itself.
+  command -v deactivate >/dev/null 2>&1 && deactivate
 }
 
 __viper-env_deactivate() {
@@ -140,6 +179,8 @@ __viper-env_deactivate() {
   # 2. Unset the VIRTUAL_ENV variable. This is the most critical step.
   unset VIRTUAL_ENV
   _VIPER_ENV_MANAGED_PATH=""
+  # Also remove our alias wrapper when deactivating automatically.
+  unalias deactivate 2>/dev/null
 }
 
 # This is the central logic function that synchronizes the shell state with the directory state.
@@ -147,26 +188,30 @@ __viper-env_deactivate() {
 __viper-env_sync_state() {
   local local_venv_path
   local_venv_path=$(__viper-env_discover_venv)
+  __viper-env_manage_activate_alias "$local_venv_path"
 
-  # --- Deactivation Logic ---
-  # If a viper-env managed venv is active...
-  if [[ -n "$_VIPER_ENV_MANAGED_PATH" ]]; then
-    # ...and it has been deleted (is defunct)...
-    if [[ ! -d "$_VIPER_ENV_MANAGED_PATH" ]]; then
-      __viper-env_deactivate "defunct"
-      return # State is now clean, nothing more to do.
-    fi
-
-    # ...and we are in a directory that has a different venv or no venv...
-    if [[ "$_VIPER_ENV_MANAGED_PATH" != "$local_venv_path" ]]; then
-      __viper-env_deactivate "leaving"
-    fi
+  # --- Defunct venv check (always active) ---
+  # If a viper-env managed venv is active and has been deleted, we should
+  # always clean up the shell state to prevent confusion, regardless of autoload settings.
+  if [[ -n "$_VIPER_ENV_MANAGED_PATH" && ! -d "$_VIPER_ENV_MANAGED_PATH" ]]; then
+    __viper-env_deactivate "defunct"
+    return # State is now clean, nothing more to do.
   fi
 
-  # --- Activation Logic ---
-  # If a local venv is discovered and it's not the currently active one...
-  if [[ -n "$local_venv_path" && "$VIRTUAL_ENV" != "$local_venv_path" ]]; then
-    __viper-env_activate "$local_venv_path"
+  # --- Automatic Activation/Deactivation Logic ---
+  # This entire block only runs if autoload is enabled.
+  if [[ "$(__viper-env_get_hook_type)" == "precmd" ]]; then
+    # --- Deactivation on leaving ---
+    # If a managed venv is active and we are in a directory that has a different venv or no venv...
+    if [[ -n "$_VIPER_ENV_MANAGED_PATH" && "$_VIPER_ENV_MANAGED_PATH" != "$local_venv_path" ]]; then
+      __viper-env_deactivate "leaving"
+    fi
+
+    # --- Activation on entering ---
+    # If a local venv is discovered and it's not the currently active one...
+    if [[ -n "$local_venv_path" && "$VIRTUAL_ENV" != "$local_venv_path" ]]; then
+      __viper-env_activate "$local_venv_path"
+    fi
   fi
 }
 
@@ -177,6 +222,11 @@ __viper-env_on_chpwd() {
     _VIPER_ENV_LAST_WARNING_KEY=""
     _VIPER_ENV_LAST_PWD="$PWD"
   fi
+
+  # When using the chpwd hook, we sync state on every directory change.
+  # This check prevents sync_state from running twice when precmd is also active,
+  # as chpwd runs before precmd on a directory change.
+  [[ "$(__viper-env_get_hook_type)" == "chpwd" ]] && __viper-env_sync_state
 }
 
 # Hook that runs after every command.
@@ -221,20 +271,21 @@ __viper-env_register_hook
 __viper-env_handle_autoload() {
   case "$1" in
     --enable)
-      echo "Enabling immediate activation on venv creation (using precmd hook)."
+      echo "Enabling automatic virtual environment activation."
       echo '_VIPER_ENV_HOOK_TYPE="precmd"' > "$_VIPER_ENV_CONFIG_FILE"
       __viper-env_register_hook
       ;;
     --disable)
-      echo "Disabling immediate activation (using chpwd hook)."
+      echo "Disabling automatic virtual environment activation."
+      echo "Use 'viper-env activate' for manual activation."
       echo '_VIPER_ENV_HOOK_TYPE="chpwd"' > "$_VIPER_ENV_CONFIG_FILE"
       __viper-env_register_hook
       ;;
     *)
       printf "${COLOR_RED}Error: Unknown argument '%s' for autoload command.${COLOR_NC}\n\n" "$1" >&2
       printf "Usage: viper-env autoload [--enable|--disable]\n"
-      printf "  --enable:  Activate venvs immediately upon creation (uses 'precmd' hook, default).\n"
-      printf "  --disable: Activate venvs only when changing directories (uses 'chpwd' hook for efficiency).\n"
+      printf "  --enable:  Automatically activate and deactivate virtual environments (default).\n"
+      printf "  --disable: Disables all automatic activation and deactivation. Manual control is required via 'viper-env activate'.\n"
       return 1
       ;;
   esac
@@ -259,6 +310,13 @@ Example usage:
   ${COLOR_BRIGHT_GREEN}cd${COLOR_NC} ..
   ${COLOR_BRIGHT_BLACK}# Reenter it${COLOR_NC}
   ${COLOR_GREEN}cd${COLOR_NC} new_project
+
+Manual Activation:
+  When a virtual environment is discovered and not yet active, you can manually
+  activate it by simply running:
+  ${COLOR_BRIGHT_GREEN}activate${COLOR_NC}
+  This command is an alias that is automatically created and removed by viper-env.
+  It is especially useful when autoloading is disabled.
 
 Commands:
   ${COLOR_BRIGHT_GREEN}help, h${COLOR_NC}      Show this help message.
@@ -307,6 +365,18 @@ viper-env() {
       local discovered_path
       discovered_path=$(__viper-env_discover_venv)
       [[ -n "$discovered_path" ]] && printf "Discovered venv: ${COLOR_BRIGHT_CYAN}%s${COLOR_NC}\n" "$discovered_path" || printf "Discovered venv: None\n"
+
+      # Check for the activation alias
+      if alias activate >/dev/null 2>&1; then
+        if [[ "$(alias activate)" == *__viper-env_manual_activate* ]]; then
+          printf "Activation command: ${COLOR_BRIGHT_GREEN}'activate' alias is set by viper-env${COLOR_NC}\n"
+        else
+          printf "Activation command: 'activate' alias is set by another tool\n"
+        fi
+      else
+        printf "Activation command: ${COLOR_RED}'activate' alias is not set${COLOR_NC}\n"
+      fi
+
       ;;
     "autoload")
       __viper-env_handle_autoload "$2"
