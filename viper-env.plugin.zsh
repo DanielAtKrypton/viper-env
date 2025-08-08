@@ -76,6 +76,19 @@ __viper-env_discover_venv() {
       fi
     fi
 
+    # Mode 2: Check for a Poetry project and ask it for its venv path.
+    # This is the most reliable way to support Poetry's centralized venv cache.
+    if [[ -f "$search_dir/pyproject.toml" ]] && command -v poetry >/dev/null; then
+      local poetry_venv_path
+      # Run poetry in a subshell to get the venv path without changing the current shell's directory.
+      # This is robust and avoids side effects.
+      poetry_venv_path=$(cd "$search_dir" && poetry env info --path 2>/dev/null)
+      if [[ -n "$poetry_venv_path" && -f "$poetry_venv_path/bin/activate" ]]; then
+        echo "$poetry_venv_path"
+        return 0
+      fi
+    fi
+
     # Pattern 1: Check if current dir is a venv root
     if [[ -f "$search_dir/bin/activate" ]]; then
       echo "$search_dir"
@@ -188,6 +201,12 @@ __viper-env_deactivate() {
 # It's called by both chpwd and precmd hooks.
 __viper-env_sync_state() {
   local local_venv_path
+
+  # Conda Compatibility: If a Conda environment is active, do nothing to avoid conflicts.
+  if [[ -n "$CONDA_PREFIX" ]]; then
+    return 0
+  fi
+
   local_venv_path=$(__viper-env_discover_venv)
   __viper-env_manage_activate_alias "$local_venv_path"
 
