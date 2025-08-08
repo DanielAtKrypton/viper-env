@@ -20,7 +20,7 @@ export COLOR_NC=$'\033[0m' # No Color
 
 # Configuration file for persistent settings.
 _VIPER_ENV_CONFIG_FILE="$HOME/.viper-env.conf"
-_VIPER_ENV_VERSION="v1.1.1"
+_VIPER_ENV_VERSION="v1.1.2"
 
 # This variable will hold the path of the environment managed by this script.
 # This prevents us from deactivating environments managed by other tools (e.g., conda, poetry).
